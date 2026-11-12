@@ -1,0 +1,252 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -256,
+        -112
+      ],
+      "name": "When chat message received"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        432,
+        176
+      ],
+      "name": "Google Gemini Chat Model"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        128
+      ],
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "You are a planning agent.\n\nYour job is to:\n1. Extract budget, dietary restrictions, and goals from the user input\n2. Create a structured plan with:\n   - budget\n   - diet\n   - food preferences (if any)\n\nExtract the user's:\n- budget\n- diet\n- goals\n\nThen rewrite it clearly as a prompt for another agent."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        0,
+        -96
+      ],
+      "name": "Planner Agent"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{$json[\"prompt\"]}}",
+        "options": {
+          "systemMessage": "You are a nutrition agent.\n\nYour job is to:\n1. Recommend grocery items based on:\n   - dietary restrictions\n   - health goals\n2. Return ONLY a list of grocery items\n\nDo NOT include prices.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        432,
+        -80
+      ],
+      "name": "Nutritional Agent"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{$json[\"prompt\"]}}",
+        "options": {
+          "systemMessage": "Your job is to:\n1. Assign estimated prices to grocery items\n2. Calculate total cost\n3. Ensure the total stays within budget\n4. Adjust quantities if needed\n\nReturn:\n- item list\n- prices\n- total cost\n\nYou will also receive the user's budget. You MUST ensure total cost does not exceed it."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        864,
+        -80
+      ],
+      "name": "Budget Agent"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.toolCalculator",
+      "typeVersion": 1,
+      "position": [
+        1024,
+        144
+      ],
+      "name": "Calculator"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "465a4091-8398-44e2-923d-fc69a4281da1",
+              "name": "prompt",
+              "value": "=Create a grocery list based on this: Budget: {{$json[\"budget\"]}} Diet: {{$json[\"diet\"]}} Goals: {{$json[\"goals\"]}}",
+              "type": "string"
+            },
+            {
+              "id": "b5c81a0c-a013-4e07-b733-1c98cc7984bb",
+              "name": "budget",
+              "value": "={{$json[\"budget\"]}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        272,
+        -192
+      ],
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "340359ff-c841-4b5d-9d45-f1966fe6a9bf",
+              "name": "prompt",
+              "value": "==Here are the grocery items:\n{{$json[\"output\"]}}\n\nThe user's budget is {{$node[\"Edit Fields\"].json[\"budget\"]}}.\n\nAssign prices, calculate total cost, and keep it within budget.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        720,
+        -192
+      ],
+      "name": "Edit Fields1"
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Planner Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Planner Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Nutritional Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Budget Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Planner Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Planner Agent": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nutritional Agent": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculator": {
+      "ai_tool": [
+        [
+          {
+            "node": "Budget Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Nutritional Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Budget Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "tags": []
+}
